@@ -102,7 +102,22 @@ public class Commands {
             Server s = Server.getServer(args[1]);
             if(s.isRunning())
                 s.stop();
+            System.out.println(s.getDataDir().getAbsoluteFile());
             s.getDataDir().delete();
         }
+    }
+    
+    public static void exit(String[] args) {
+        System.out.println("Shutting down");
+        for(Object b : Server.allServers().values()){
+            Server s = (Server) b;
+            if(s.isRunning())
+                s.stop();
+        }
+        System.exit(0);
+    }
+    
+    public static void dat(String[] args) {
+        System.out.println(Server.getServer(args[1]).getDataDir().getAbsolutePath());
     }
 }

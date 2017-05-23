@@ -46,11 +46,12 @@ public class Spriggan {
     private static String currentSpigot = "1.11.2";
     
     public static void main(String[] argsv) {
-        if (argsv[0].equalsIgnoreCase("-v") || argsv[0].equalsIgnoreCase("-version")) {
+        if (argsv.length > 0 && (argsv[0].equalsIgnoreCase("-v") || argsv[0].equalsIgnoreCase("-version"))) {
             System.out.println(VERSION);
             return;
         }
         loadConfig();
+        setup();
         Server.loadAll();
         System.out.println("Welcome to Spriggan. Type help for a list of commands.");
         System.out.println("=====");
@@ -60,7 +61,7 @@ public class Spriggan {
             System.out.print("> ");
             String[] command = input.nextLine().split(" ");
             try {
-                Commands.class.getDeclaredMethod(command[0].toLowerCase(), String[].class).invoke(null, command);
+                Commands.class.getDeclaredMethod(command[0].toLowerCase(), String[].class).invoke(null, new Object[] {command});
             } catch (NoSuchMethodException ex) {
                 System.out.println("Command not found");
             } catch (SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
@@ -70,12 +71,12 @@ public class Spriggan {
 
     }
 
-    public static void loadConfig() {
+    private static void loadConfig() {
         File settings = new File("spriggan.conf");
         if (settings.exists()) {
             try (BufferedReader br = new BufferedReader(new FileReader(settings))) {
                 String line;
-                while ((line = br.readLine()) != null && !line.startsWith("#")) {
+                while ((line = br.readLine()) != null) {
                     String[] args = line.split("=");
                     if (args[0].equals("server-folder")) {
                         serverFolder = new File(args[1]);
@@ -90,16 +91,22 @@ public class Spriggan {
             }
         } else {
             try (BufferedWriter bw = new BufferedWriter(new FileWriter(settings))) {
-                bw.write("#Generated " + new Date().toLocaleString());
+                bw.write("#Generated " + new Date().toLocaleString() + "\n");
                 serverFolder = new File("servers");
-                bw.write("server-folder=" + serverFolder.getPath());
+                bw.write("server-folder=" + serverFolder.getPath() + "\n");
                 mavenFolder = new File(System.getProperty("user.home") + fsep + ".m2" + fsep + "repository");
-                bw.write("maven-folder=" + mavenFolder);
-                bw.write("default-version=" + currentSpigot);
+                bw.write("maven-folder=" + mavenFolder + "\n");
+                bw.write("default-version=" + currentSpigot + "\n");
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
 
+        }
+    }
+    
+    private static void setup(){
+        if(!serverFolder.exists()){
+            serverFolder.mkdir();
         }
     }
 
