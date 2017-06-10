@@ -19,7 +19,6 @@
  */
 package io.dallen.spriggan;
 
-import io.dallen.spriggan.ServerLog.ServerLogHandler;
 import static io.dallen.spriggan.Spriggan.fsep;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -34,7 +33,10 @@ import java.util.Queue;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -85,12 +87,12 @@ public class Server {
                 System.out.println(msg);
             }
         });
-        procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable)
-                .directory(dataDir)
-                .redirectErrorStream(true);
     }
 
     public void start() {
+        procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable)
+                .directory(dataDir)
+                .redirectErrorStream(true);
         try {
             System.out.println("Starting " + name);
             running = true;
@@ -147,6 +149,7 @@ public class Server {
             ex.printStackTrace();
         }
         // Regenerate the proc builder with new exec name
+        System.out.println("executing: " + Arrays.toString(new String[] {"java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable}));
         procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable)
                 .directory(dataDir)
                 .redirectErrorStream(true);
@@ -240,7 +243,7 @@ public class Server {
     }
     
     public void saveConf(){
-        ConfUtil.saveConfig(new File(dataDir + Spriggan.fsep + "spriggan-server.conf"), new HashMap<String, String>(){{
+        ConfUtil.saveConfig(new File(dataDir + fsep + "spriggan-server.conf"), new HashMap<String, String>(){{
             put("memory", String.valueOf(memory));
             put("keep-alive", String.valueOf(keepAlive));
             put("executable", executable);
@@ -249,11 +252,26 @@ public class Server {
     }
     
     public void loadConf(){
-        Map<String, String> data = ConfUtil.loadConfig(new File(dataDir + Spriggan.fsep + "spriggan-server.conf"));
+        Map<String, String> data = ConfUtil.loadConfig(new File(dataDir + fsep + "spriggan-server.conf"));
         memory = Integer.parseInt(data.get("memory"));
         keepAlive = Boolean.getBoolean(data.get("keep-alive"));
         executable = data.get("executable");
         spigotVersion = data.get("spigot-version");
+    }
+    
+    public void executeCommand(String str){
+        if(running){
+            try {
+                BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(proc.getOutputStream()));
+                bw.write(str+"\n");
+                bw.flush();
+                bw.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }else{
+            System.out.println("Server not running");
+        }
     }
 
     public boolean isRunning() {
@@ -301,8 +319,6 @@ public class Server {
         }
     }
     
-    
-
     private class ServerHandle extends Thread {
 
         private BufferedReader reader;

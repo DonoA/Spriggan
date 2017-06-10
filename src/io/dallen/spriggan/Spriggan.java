@@ -79,7 +79,6 @@ public class Spriggan {
         Scanner input = new Scanner(System.in);
         boolean running = true;
         while (running) {
-//            System.out.print("> ");
             String[] command = input.nextLine().split(" ");
             try {
                 if (currentServer != null) {

@@ -37,7 +37,15 @@ public class TermUtil extends PrintStream{
     
     @Override
     public void println(String m){
-        sysOut.print("\b\b" + m + "\n> ");
+        if(System.getenv("COLUMNS") != null){
+            int w = Integer.parseInt(System.getenv("COLUMNS"));
+            for(int i = 0; i<w; i++){
+                sysOut.print("\b");
+            }
+            sysOut.print(m + "\n> ");
+        }else{
+            sysOut.print("\b\b" + m + "\n> ");
+        }
     }
     
     @Override

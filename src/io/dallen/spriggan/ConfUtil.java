@@ -19,7 +19,6 @@
  */
 package io.dallen.spriggan;
 
-import static io.dallen.spriggan.Spriggan.fsep;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
