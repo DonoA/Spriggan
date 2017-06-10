@@ -19,6 +19,8 @@
  */
 package io.dallen.spriggan;
 
+import io.dallen.spriggan.GUI.GUI;
+import io.dallen.spriggan.GUI.GUI.ConsoleOut;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -45,6 +47,8 @@ public class Spriggan {
     
     private static String currentSpigot = "1.11.2";
     
+    private static GUI gui;
+    
     public static void main(String[] argsv) {
         if (argsv.length > 0 && (argsv[0].equalsIgnoreCase("-v") || argsv[0].equalsIgnoreCase("-version"))) {
             System.out.println(VERSION);
@@ -53,22 +57,13 @@ public class Spriggan {
         loadConfig();
         setup();
         Server.loadAll();
-        System.out.println("Welcome to Spriggan. Type help for a list of commands.");
-        System.out.println("=====");
-        Scanner input = new Scanner(System.in);
-        boolean running = true;
-        while (running) {
-            System.out.print("> ");
-            String[] command = input.nextLine().split(" ");
-            try {
-                Commands.class.getDeclaredMethod(command[0].toLowerCase(), String[].class).invoke(null, new Object[] {command});
-            } catch (NoSuchMethodException ex) {
-                System.out.println("Command not found");
-            } catch (SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-                ex.printStackTrace();
-            }
-        }
-
+        gui = new GUI(VERSION, 600, 550);
+        gui.out.println("Welcome to Spriggan. Type help for a list of commands.");
+        gui.out.println("=====");
+    }
+    
+    public static ConsoleOut out(){
+        return gui.out;
     }
 
     private static void loadConfig() {

@@ -19,7 +19,8 @@
  */
 package io.dallen.spriggan;
 
-import java.io.File;
+import java.lang.reflect.Method;
+import java.util.Iterator;
 
 /**
  *
@@ -29,20 +30,20 @@ public class Commands {
 
     public static void start(String[] args) {
         if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
+            Spriggan.out().println("Server not found");
             return;
         }
         Server s = Server.getServer(args[1]);
         if (!s.isRunning()) {
             s.start();
         } else {
-            System.out.println("Server already running");
+            Spriggan.out().println("Server already running");
         }
     }
 
     public static void stop(String[] args) {
         if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
+            Spriggan.out().println("Server not found");
             return;
         }
         Server s = Server.getServer(args[1]);
@@ -50,26 +51,26 @@ public class Commands {
             s.keepAlive(false);
             s.stop();
         } else {
-            System.out.println("Server not running");
+            Spriggan.out().println("Server not running");
         }
     }
     
     public static void kill(String[] args) {
         if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
+            Spriggan.out().println("Server not found");
             return;
         }
         Server s = Server.getServer(args[1]);
         if (s.isRunning()) {
             s.kill();
         } else {
-            System.out.println("Server not running");
+            Spriggan.out().println("Server not running");
         }
     }
     
     public static void restart(String[] args) {
         if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
+            Spriggan.out().println("Server not found");
             return;
         }
         Server s = Server.getServer(args[1]);
@@ -77,17 +78,19 @@ public class Commands {
             s.keepAlive(true);
             s.stop();
         } else {
-            System.out.println("Server not running");
+            Spriggan.out().println("Server not running");
         }
     }
 
     public static void help(String[] args) {
-        System.out.println("Help!");
+        for(Method m : Commands.class.getDeclaredMethods()){
+            Spriggan.out().println(m.getName());
+        }
     }
 
     public static void create(String[] args) {
         if (Server.allServers().containsKey(args[1])) {
-            System.out.println("Server already exists");
+            Spriggan.out().println("Server already exists");
         } else {
             Server s = new Server(args[1]);
             s.setup();
@@ -97,20 +100,21 @@ public class Commands {
 
     public static void destroy(String[] args) {
         if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
+            Spriggan.out().println("Server not found");
         } else {
             Server s = Server.getServer(args[1]);
             if(s.isRunning())
                 s.stop();
-            System.out.println(s.getDataDir().getAbsoluteFile());
+            Spriggan.out().println(s.getDataDir().getAbsoluteFile().toString());
             s.getDataDir().delete();
         }
     }
     
     public static void exit(String[] args) {
-        System.out.println("Shutting down");
-        for(Object b : Server.allServers().values()){
-            Server s = (Server) b;
+        Spriggan.out().println("Shutting down");
+        Iterator servers = Server.allServers().values().iterator();
+        while (servers.hasNext()) {
+            Server s = (Server) servers.next();
             if(s.isRunning())
                 s.stop();
         }
@@ -118,6 +122,6 @@ public class Commands {
     }
     
     public static void dat(String[] args) {
-        System.out.println(Server.getServer(args[1]).getDataDir().getAbsolutePath());
+        Spriggan.out().println(Server.getServer(args[1]).getDataDir().getAbsolutePath());
     }
 }

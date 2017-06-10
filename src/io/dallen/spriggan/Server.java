@@ -132,7 +132,7 @@ public class Server {
         executable = "spigot-" + exe + ".jar";
         File serverJar = new File(serverJars + fsep + exe + fsep + executable);
         try {
-            System.out.println("Copying server jar, " + serverJar.getAbsolutePath() + " -> " + new File(dataDir + fsep + executable).getAbsolutePath());
+            Spriggan.out().println("Copying server jar, " + serverJar.getAbsolutePath() + " -> " + new File(dataDir + fsep + executable).getAbsolutePath());
             Files.copy(serverJar.toPath(), new File(dataDir + fsep + executable).toPath());
         } catch (IOException ex) {
             ex.printStackTrace();
@@ -148,18 +148,18 @@ public class Server {
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-        System.out.println("Created eula.txt");
+        Spriggan.out().println("Created eula.txt");
         // start the server to create the server.properties
         try {
-            System.out.println("Starting server 1st time...");
+            Spriggan.out().println("Starting server 1st time...");
             Process pr = procb.start();
             BufferedReader reader = new BufferedReader(new InputStreamReader(pr.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
                 if(line.contains("Preparing start")){
-                    System.out.println("Generating worlds...");
+                    Spriggan.out().println("Generating worlds...");
                 }else if(line.contains("Done")){
-                    System.out.println("Stopping server 1");
+                    Spriggan.out().println("Stopping server 1");
                     BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(pr.getOutputStream()));
                     bw.write("stop\n");
                     bw.flush();
@@ -167,12 +167,12 @@ public class Server {
                 }
             }
             pr.waitFor();
-            System.out.println("Server 1 closed");
+            Spriggan.out().println("Server 1 closed");
         } catch (IOException | InterruptedException ex) {
             ex.printStackTrace();
         }
         // Edit the server props
-        System.out.println("Editing server props");
+        Spriggan.out().println("Editing server props");
         File serverProps = new File(dataDir + fsep + "server.properties");
         try {
             List<String> lines = new LinkedList<String>();
@@ -200,16 +200,16 @@ public class Server {
             bw.flush();
             bw.close();
         } catch (Exception e) {
-            System.out.println("Problem reading file.");
+            Spriggan.out().println("Problem reading file.");
         }
-        System.out.println("Regenerating worlds to be flat");
+        Spriggan.out().println("Regenerating worlds to be flat");
         // delete old world
         for(String s : new String[] {"", "_nether", "_the_end"}){
             new File(dataDir + fsep + "world"+s).delete();
         }
         // Generate the new flat world
         try {
-            System.out.println("Starting server 2nd time...");
+            Spriggan.out().println("Starting server 2nd time...");
             Process pr = procb.start();
             BufferedReader reader = new BufferedReader(new InputStreamReader(pr.getInputStream()));
             String line;
@@ -222,11 +222,11 @@ public class Server {
                 }
             }
             pr.waitFor();
-            System.out.println("Server 2 closed");
+            Spriggan.out().println("Server 2 closed");
         } catch (IOException | InterruptedException ex) {
             ex.printStackTrace();
         }
-        System.out.println("Server ready to start and connect on " + host + ":" + port);
+        Spriggan.out().println("Server ready to start and connect on " + host + ":" + port);
     }
 
     public boolean isRunning() {
@@ -291,10 +291,11 @@ public class Server {
             try {
                 String line;
                 while ((line = reader.readLine()) != null) {
+                    Spriggan.out().println(line);
                     System.out.println(line);
                 }
                 Server.this.proc.waitFor();
-                System.out.println("Server closed");
+                Spriggan.out().println("Server closed");
                 reader.close();
                 if (Server.this.keepAlive) {
                     while (!onReboot.isEmpty()) {
