@@ -19,15 +19,15 @@
  */
 package io.dallen.spriggan;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Date;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -42,26 +42,75 @@ public class Spriggan {
     public static final String fsep = System.getProperty("file.separator");
 
     private static String VERSION = "0.1";
-    
+
     private static String currentSpigot = "1.11.2";
-    
+
+    private static Server currentServer = null;
+
     public static void main(String[] argsv) {
         if (argsv.length > 0 && (argsv[0].equalsIgnoreCase("-v") || argsv[0].equalsIgnoreCase("-version"))) {
             System.out.println(VERSION);
             return;
         }
-        loadConfig();
+        File settings = new File("spriggan.conf");
+        if (settings.exists()) {
+            Map<String, String> data = ConfUtil.loadConfig(settings);
+            serverFolder = new File(data.get("server-folder"));
+            mavenFolder = new File(data.get("maven-folder"));
+            currentSpigot = data.get("default-version");
+        } else {
+            serverFolder = new File("servers");
+            mavenFolder = new File(System.getProperty("user.home") + fsep + ".m2" + fsep + "repository");
+            ConfUtil.saveConfig(settings, new HashMap<String, String>(){{
+                put("server-folder", "servers");
+                put("maven-folder", System.getProperty("user.home") + fsep + ".m2" + fsep + "repository");
+                put("default-version", currentSpigot);
+            }});
+        }
         setup();
         Server.loadAll();
+        try {
+            System.setOut(new TermUtil(System.out));
+        } catch (FileNotFoundException ex) {
+            System.out.println("Failed to bind new sys out");
+        }
         System.out.println("Welcome to Spriggan. Type help for a list of commands.");
         System.out.println("=====");
         Scanner input = new Scanner(System.in);
         boolean running = true;
         while (running) {
-            System.out.print("> ");
+//            System.out.print("> ");
             String[] command = input.nextLine().split(" ");
             try {
-                Commands.class.getDeclaredMethod(command[0].toLowerCase(), String[].class).invoke(null, new Object[] {command});
+                if (currentServer != null) {
+                    try {
+                        Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{Server.class, String[].class})
+                                .invoke(null, new Object[]{currentServer, command});
+                    } catch (NoSuchMethodException ex) {
+                        Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{String[].class})
+                                .invoke(null, new Object[]{command});
+                    }
+                } else {
+                    try {
+                        Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{String[].class})
+                                .invoke(null, new Object[]{command});
+                    } catch (NoSuchMethodException ex) {
+                        if (command.length > 1) {
+                            if (!Server.allServers().containsKey(command[1])) {
+                                System.out.println("Server not found");
+                            } else {
+                                Server s = Server.getServer(command[1]);
+                                Method cmd = Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{Server.class, String[].class});
+                                if (!cmd.isAnnotationPresent(Commands.StrictlyCurrentServer.class)) {
+                                    cmd.invoke(null, new Object[]{s, command});
+                                }
+                            }
+                        } else {
+                            System.out.println("Command not found");
+                        }
+                    }
+
+                }
             } catch (NoSuchMethodException ex) {
                 System.out.println("Command not found");
             } catch (SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
@@ -71,41 +120,8 @@ public class Spriggan {
 
     }
 
-    private static void loadConfig() {
-        File settings = new File("spriggan.conf");
-        if (settings.exists()) {
-            try (BufferedReader br = new BufferedReader(new FileReader(settings))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    String[] args = line.split("=");
-                    if (args[0].equals("server-folder")) {
-                        serverFolder = new File(args[1]);
-                    } else if (args[0].equals("maven-folder")) {
-                        mavenFolder = new File(args[1]);
-                    } else if (args[0].equals("default-version")) {
-                        currentSpigot = args[1];
-                    }
-                }
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        } else {
-            try (BufferedWriter bw = new BufferedWriter(new FileWriter(settings))) {
-                bw.write("#Generated " + new Date().toLocaleString() + "\n");
-                serverFolder = new File("servers");
-                bw.write("server-folder=" + serverFolder.getPath() + "\n");
-                mavenFolder = new File(System.getProperty("user.home") + fsep + ".m2" + fsep + "repository");
-                bw.write("maven-folder=" + mavenFolder + "\n");
-                bw.write("default-version=" + currentSpigot + "\n");
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-
-        }
-    }
-    
-    private static void setup(){
-        if(!serverFolder.exists()){
+    private static void setup() {
+        if (!serverFolder.exists()) {
             serverFolder.mkdir();
         }
     }
@@ -113,12 +129,20 @@ public class Spriggan {
     public static File getServerFolder() {
         return serverFolder;
     }
-    
+
+    public static Server getCurrentServer() {
+        return currentServer;
+    }
+
+    public static void setCurrentServer(Server newServer) {
+        currentServer = newServer;
+    }
+
     public static File getMavenFolder() {
         return mavenFolder;
     }
-    
-    public static String getDefaultVersion(){
+
+    public static String getDefaultVersion() {
         return currentSpigot;
     }
 }

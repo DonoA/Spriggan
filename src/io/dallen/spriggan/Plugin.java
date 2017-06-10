@@ -30,33 +30,33 @@ import java.util.Map;
  * @author Donovan Allen
  */
 public class Plugin {
-    
+
     private String name;
-    
+
     private File repo;
-    
+
     private List<Plugin> depends = new LinkedList<Plugin>();
-    
+
     private static Map<String, Plugin> knownPlugins = new HashMap<>();
-    
-    public Plugin(String name, File repo){
+
+    public Plugin(String name, File repo) {
         this.name = name;
         this.repo = repo;
     }
-    
-    public static File locateRepo(String name){
+
+    public static File locateRepo(String name) {
         File exec = searchFolder(Spriggan.getMavenFolder(), name);
         return exec;
     }
-    
-    private static File searchFolder(File folder, String name){
-        for(File f : folder.listFiles()){
-            if(f.isDirectory()){
-                if(f.getName().equalsIgnoreCase(name)){
+
+    private static File searchFolder(File folder, String name) {
+        for (File f : folder.listFiles()) {
+            if (f.isDirectory()) {
+                if (f.getName().equalsIgnoreCase(name)) {
                     return f;
                 }
                 File rtn = searchFolder(f, name);
-                if(rtn != null){
+                if (rtn != null) {
                     return rtn;
                 }
             }

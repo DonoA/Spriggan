@@ -19,7 +19,11 @@
  */
 package io.dallen.spriggan;
 
-import java.io.File;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.reflect.Method;
 
 /**
  *
@@ -27,12 +31,7 @@ import java.io.File;
  */
 public class Commands {
 
-    public static void start(String[] args) {
-        if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
-            return;
-        }
-        Server s = Server.getServer(args[1]);
+    public static void start(Server s, String[] args) {
         if (!s.isRunning()) {
             s.start();
         } else {
@@ -40,12 +39,7 @@ public class Commands {
         }
     }
 
-    public static void stop(String[] args) {
-        if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
-            return;
-        }
-        Server s = Server.getServer(args[1]);
+    public static void stop(Server s, String[] args) {
         if (s.isRunning()) {
             s.keepAlive(false);
             s.stop();
@@ -53,26 +47,16 @@ public class Commands {
             System.out.println("Server not running");
         }
     }
-    
-    public static void kill(String[] args) {
-        if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
-            return;
-        }
-        Server s = Server.getServer(args[1]);
+
+    public static void kill(Server s, String[] args) {
         if (s.isRunning()) {
             s.kill();
         } else {
             System.out.println("Server not running");
         }
     }
-    
-    public static void restart(String[] args) {
-        if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
-            return;
-        }
-        Server s = Server.getServer(args[1]);
+
+    public static void restart(Server s, String[] args) {
         if (s.isRunning()) {
             s.keepAlive(true);
             s.stop();
@@ -82,7 +66,9 @@ public class Commands {
     }
 
     public static void help(String[] args) {
-        System.out.println("Help!");
+        for (Method m : Commands.class.getDeclaredMethods()) {
+            System.out.println(m.getName());
+        }
     }
 
     public static void create(String[] args) {
@@ -100,24 +86,63 @@ public class Commands {
             System.out.println("Server not found");
         } else {
             Server s = Server.getServer(args[1]);
-            if(s.isRunning())
+            if (s.isRunning()) {
                 s.stop();
+            }
             System.out.println(s.getDataDir().getAbsoluteFile());
             s.getDataDir().delete();
         }
     }
-    
+
+    @StrictlyCurrentServer
+    public static void disconnect(Server s, String[] args) {
+        System.out.println("Disconnecting from " + s.getName());
+        Spriggan.setCurrentServer(null);
+    }
+
+    @StrictlyCurrentServer
+    public static void current(Server s, String[] args) {
+        System.out.println("Currently connected to " + s.getName());
+    }
+
+    public static void connect(Server s, String[] args) {
+        System.out.println("Connecting to " + s.getName());
+        Spriggan.setCurrentServer(s);
+    }
+
     public static void exit(String[] args) {
         System.out.println("Shutting down");
-        for(Object b : Server.allServers().values()){
+        for (Object b : Server.allServers().values()) {
             Server s = (Server) b;
-            if(s.isRunning())
+            if (s.isRunning()) {
                 s.stop();
+                s.saveConf();
+            }
         }
         System.exit(0);
     }
-    
+
     public static void dat(String[] args) {
         System.out.println(Server.getServer(args[1]).getDataDir().getAbsolutePath());
+    }
+
+    public static void running(String[] args) {
+        for (Object o : Server.allServers().values()) {
+            Server s = (Server) o;
+            if (s.isRunning()) {
+                System.out.println(s.getName());
+            }
+        }
+    }
+
+    public static void servers(String[] args) {
+        for (Object o : Server.allServers().values()) {
+            System.out.println(((Server) o).getName());
+        }
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.METHOD})
+    public @interface StrictlyCurrentServer {
     }
 }

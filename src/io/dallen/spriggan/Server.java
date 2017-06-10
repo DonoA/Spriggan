@@ -19,6 +19,7 @@
  */
 package io.dallen.spriggan;
 
+import io.dallen.spriggan.ServerLog.ServerLogHandler;
 import static io.dallen.spriggan.Spriggan.fsep;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -58,15 +59,17 @@ public class Server {
     private String executable = "";
 
     private String spigotVersion;
-    
+
     private String host = "localhost";
-    
+
     private int port = 25565;
 
-    private static final Map<String, Server> servers = new HashMap<>();
-    
     private int memory = 2;
-    
+
+    private ServerLog logs;
+
+    private static final Map<String, Server> servers = new HashMap<>();
+
     public Server(String name) {
         this(name, Spriggan.getDefaultVersion());
     }
@@ -77,13 +80,19 @@ public class Server {
         this.dataDir = new File(Spriggan.getServerFolder() + fsep + name);
         this.keepAlive = true;
         this.spigotVersion = version;
-        procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms"+memory+"G", "-Xmx"+memory+"G", "-jar", executable)
+        this.logs = new ServerLog(name, (String msg) -> {
+            if (Spriggan.getCurrentServer() != null && Spriggan.getCurrentServer().getName().equals(name)) {
+                System.out.println(msg);
+            }
+        });
+        procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable)
                 .directory(dataDir)
                 .redirectErrorStream(true);
     }
 
     public void start() {
         try {
+            System.out.println("Starting " + name);
             running = true;
             proc = procb.start();
             serverMonitor = new ServerHandle();
@@ -104,13 +113,13 @@ public class Server {
             ex.printStackTrace();
         }
     }
-    
-    public void addPlugin(Plugin p){
-        
+
+    public void addPlugin(Plugin p) {
+
     }
-    
-    public void removePlugin(Plugin p){
-        
+
+    public void removePlugin(Plugin p) {
+
     }
 
     public void setup() {
@@ -138,7 +147,7 @@ public class Server {
             ex.printStackTrace();
         }
         // Regenerate the proc builder with new exec name
-        procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms"+memory+"G", "-Xmx"+memory+"G", "-jar", executable)
+        procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable)
                 .directory(dataDir)
                 .redirectErrorStream(true);
         // agree to the eula
@@ -156,9 +165,9 @@ public class Server {
             BufferedReader reader = new BufferedReader(new InputStreamReader(pr.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
-                if(line.contains("Preparing start")){
+                if (line.contains("Preparing start")) {
                     System.out.println("Generating worlds...");
-                }else if(line.contains("Done")){
+                } else if (line.contains("Done")) {
                     System.out.println("Stopping server 1");
                     BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(pr.getOutputStream()));
                     bw.write("stop\n");
@@ -183,16 +192,16 @@ public class Server {
             }
             br.close();
             BufferedWriter bw = new BufferedWriter(new FileWriter(serverProps));
-            for(String ln : lines){
-                if(ln.startsWith("level-type=")){
+            for (String ln : lines) {
+                if (ln.startsWith("level-type=")) {
                     ln = "level-type=FLAT";
-                }else if(ln.startsWith("server-ip=")){
-                    ln = "server-ip="+host;
-                }else if(ln.startsWith("server-port=")){
-                    ln = "server-port="+port;
-                }else if(ln.startsWith("difficulty=")){
+                } else if (ln.startsWith("server-ip=")) {
+                    ln = "server-ip=" + host;
+                } else if (ln.startsWith("server-port=")) {
+                    ln = "server-port=" + port;
+                } else if (ln.startsWith("difficulty=")) {
                     ln = "difficulty=0";
-                }else if(ln.startsWith("gamemode=")){
+                } else if (ln.startsWith("gamemode=")) {
                     ln = "gamemode=1";
                 }
                 bw.write(ln + System.lineSeparator());
@@ -204,8 +213,8 @@ public class Server {
         }
         System.out.println("Regenerating worlds to be flat");
         // delete old world
-        for(String s : new String[] {"", "_nether", "_the_end"}){
-            new File(dataDir + fsep + "world"+s).delete();
+        for (String s : new String[]{"", "_nether", "_the_end"}) {
+            new File(dataDir + fsep + "world" + s).delete();
         }
         // Generate the new flat world
         try {
@@ -214,7 +223,7 @@ public class Server {
             BufferedReader reader = new BufferedReader(new InputStreamReader(pr.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
-                if(line.contains("Done")){
+                if (line.contains("Done")) {
                     BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(pr.getOutputStream()));
                     bw.write("stop\n");
                     bw.flush();
@@ -227,6 +236,24 @@ public class Server {
             ex.printStackTrace();
         }
         System.out.println("Server ready to start and connect on " + host + ":" + port);
+        this.saveConf();
+    }
+    
+    public void saveConf(){
+        ConfUtil.saveConfig(new File(dataDir + Spriggan.fsep + "spriggan-server.conf"), new HashMap<String, String>(){{
+            put("memory", String.valueOf(memory));
+            put("keep-alive", String.valueOf(keepAlive));
+            put("executable", executable);
+            put("spigot-version", spigotVersion);
+        }});
+    }
+    
+    public void loadConf(){
+        Map<String, String> data = ConfUtil.loadConfig(new File(dataDir + Spriggan.fsep + "spriggan-server.conf"));
+        memory = Integer.parseInt(data.get("memory"));
+        keepAlive = Boolean.getBoolean(data.get("keep-alive"));
+        executable = data.get("executable");
+        spigotVersion = data.get("spigot-version");
     }
 
     public boolean isRunning() {
@@ -262,7 +289,9 @@ public class Server {
             if (s.isFile() || s.isHidden()) {
                 continue;
             }
-            servers.put(s.getName(), new Server(s.getName()));
+            Server ns = new Server(s.getName());
+            ns.loadConf();
+            servers.put(s.getName(), ns);
         }
     }
 
@@ -271,6 +300,8 @@ public class Server {
             servers.put(s.getName(), s);
         }
     }
+    
+    
 
     private class ServerHandle extends Thread {
 
@@ -291,10 +322,10 @@ public class Server {
             try {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    System.out.println(line);
+                    logs.write(line);
                 }
                 Server.this.proc.waitFor();
-                System.out.println("Server closed");
+                System.out.println(name + " closed");
                 reader.close();
                 if (Server.this.keepAlive) {
                     while (!onReboot.isEmpty()) {
