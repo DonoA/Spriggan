@@ -19,38 +19,30 @@
  */
 package io.dallen.spriggan;
 
-import java.io.FileNotFoundException;
-import java.io.PrintStream;
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  *
  * @author Donovan Allen
  */
-public class TermUtil extends PrintStream {
-
-    private PrintStream sysOut;
-
-    public TermUtil(PrintStream orig) throws FileNotFoundException {
-        super("SprigganOut");
-        this.sysOut = orig;
-    }
-
-    @Override
-    public void println(String m) {
-        if (System.getenv("COLUMNS") != null) {
-            int w = Integer.parseInt(System.getenv("COLUMNS"));
-            for (int i = 0; i < w; i++) {
-                sysOut.print("\b");
-            }
-            sysOut.print(m + "\n> ");
-        } else {
-            sysOut.print("\b\b" + m + "\n> ");
+public class PluginController {
+    
+    private Map<String, Plugin> plugins = new HashMap<String, Plugin>();
+    
+    public PluginController(){
+        for(File f : Spriggan.getPluginFolder().listFiles()){
+            
         }
     }
-
-    @Override
-    public void print(String m) {
-        sysOut.print(m);
+    
+    public void addPlugin(String name, Plugin p){
+        plugins.put(name, p);
     }
-
+    
+    public Plugin getPlugin(String name){
+        return plugins.get(name);
+    }
+    
 }

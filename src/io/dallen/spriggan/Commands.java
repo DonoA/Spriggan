@@ -19,11 +19,16 @@
  */
 package io.dallen.spriggan;
 
+import java.io.File;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  *
@@ -31,6 +36,10 @@ import java.lang.reflect.Method;
  */
 public class Commands {
 
+    @CommandHelp(
+            usage = "start [name]",
+            desc = "Start the given server or the current server is none is provided"
+    )
     public static void start(Server s, String[] args) {
         if (!s.isRunning()) {
             s.start();
@@ -39,6 +48,10 @@ public class Commands {
         }
     }
 
+    @CommandHelp(
+            usage = "start [name]",
+            desc = "Stop the given server or the current server is none is provided"
+    )
     public static void stop(Server s, String[] args) {
         if (s.isRunning()) {
             s.keepAlive(false);
@@ -48,6 +61,10 @@ public class Commands {
         }
     }
 
+    @CommandHelp(
+            usage = "kill [name]",
+            desc = "Kill the given server or the current server is none is provided, forces proc close"
+    )
     public static void kill(Server s, String[] args) {
         if (s.isRunning()) {
             s.kill();
@@ -56,6 +73,10 @@ public class Commands {
         }
     }
 
+    @CommandHelp(
+            usage = "restart [name]",
+            desc = "Restart the given server or the current server is none is provided"
+    )
     public static void restart(Server s, String[] args) {
         if (s.isRunning()) {
             s.keepAlive(true);
@@ -65,12 +86,24 @@ public class Commands {
         }
     }
 
+    @CommandHelp(
+            usage = "help",
+            desc = "Print this message"
+    )
     public static void help(String[] args) {
         for (Method m : Commands.class.getDeclaredMethods()) {
-            System.out.println(m.getName());
+            String output = m.getName();
+            if (m.isAnnotationPresent(CommandHelp.class)) {
+                output += " - " + m.getAnnotation(CommandHelp.class).usage() + ", " + m.getAnnotation(CommandHelp.class).desc();
+            }
+            System.out.println(output);
         }
     }
 
+    @CommandHelp(
+            usage = "create [name]",
+            desc = "Setup a new server"
+    )
     public static void create(String[] args) {
         if (Server.allServers().containsKey(args[1])) {
             System.out.println("Server already exists");
@@ -81,6 +114,18 @@ public class Commands {
         }
     }
 
+    @CommandHelp(
+            usage = "install [server] [plugin]",
+            desc = "Install the plugin on the server"
+    )
+    public static void install(String[] args) {
+
+    }
+
+    @CommandHelp(
+            usage = "destroy [server]",
+            desc = "Delete the server completely"
+    )
     public static void destroy(String[] args) {
         if (!Server.allServers().containsKey(args[1])) {
             System.out.println("Server not found");
@@ -94,22 +139,49 @@ public class Commands {
         }
     }
 
+    @CommandHelp(
+            usage = "disconnect",
+            desc = "Disconnect the current server"
+    )
     @StrictlyCurrentServer
     public static void disconnect(Server s, String[] args) {
         System.out.println("Disconnecting from " + s.getName());
         Spriggan.setCurrentServer(null);
     }
 
+    @CommandHelp(
+            usage = "current",
+            desc = "Print current server name"
+    )
     @StrictlyCurrentServer
     public static void current(Server s, String[] args) {
         System.out.println("Currently connected to " + s.getName());
     }
 
+    @CommandHelp(
+            usage = "connect [server]",
+            desc = "Connect to the given server"
+    )
     public static void connect(Server s, String[] args) {
         System.out.println("Connecting to " + s.getName());
         Spriggan.setCurrentServer(s);
     }
 
+    @CommandHelp(
+            usage = "exec [command]",
+            desc = "Execute the command on the current server"
+    )
+    @StrictlyCurrentServer
+    public static void exec(Server s, String[] args) {
+        List<String> cmd = new LinkedList<String>(Arrays.asList(args));
+        cmd.remove(0);
+        s.executeCommand(String.join(" ", cmd.toArray(new CharSequence[]{})));
+    }
+
+    @CommandHelp(
+            usage = "exit",
+            desc = "Exit Spriggan"
+    )
     public static void exit(String[] args) {
         System.out.println("Shutting down");
         for (Object b : Server.allServers().values()) {
@@ -121,11 +193,38 @@ public class Commands {
         }
         System.exit(0);
     }
-
-    public static void dat(String[] args) {
-        System.out.println(Server.getServer(args[1]).getDataDir().getAbsolutePath());
+    
+    @CommandHelp(
+            usage = "locate",
+            desc = "locate"
+    )
+    public static void locate(String[] args) {
+        System.out.println("Finding " + args[1]);
+        File repo = Plugin.locateRepo(args[1]);
+        System.out.println();
+    }
+    
+    @CommandHelp(
+            usage = "stat",
+            desc = "stat"
+    )
+    public static void stat(String[] args) {
+        System.out.println("Stating " + args[1]);
+        System.out.println();
     }
 
+    @CommandHelp(
+            usage = "dat [server]",
+            desc = "Display the data file for the given server"
+    )
+    public static void dat(Server s, String[] args) {
+        System.out.println(s.getDataDir().getAbsolutePath());
+    }
+
+    @CommandHelp(
+            usage = "running",
+            desc = "Display list of running servers"
+    )
     public static void running(String[] args) {
         for (Object o : Server.allServers().values()) {
             Server s = (Server) o;
@@ -135,6 +234,10 @@ public class Commands {
         }
     }
 
+    @CommandHelp(
+            usage = "servers",
+            desc = "List all known servers"
+    )
     public static void servers(String[] args) {
         for (Object o : Server.allServers().values()) {
             System.out.println(((Server) o).getName());
@@ -144,5 +247,14 @@ public class Commands {
     @Retention(RetentionPolicy.RUNTIME)
     @Target({ElementType.METHOD})
     public @interface StrictlyCurrentServer {
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.METHOD})
+    public @interface CommandHelp {
+
+        String usage();
+
+        String desc();
     }
 }

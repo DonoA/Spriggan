@@ -26,8 +26,6 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -38,6 +36,10 @@ public class Spriggan {
     private static File serverFolder;
 
     private static File mavenFolder;
+    
+    private static File pluginFolder;
+    
+    private static PluginController pluginController;
 
     public static final String fsep = System.getProperty("file.separator");
 
@@ -46,27 +48,33 @@ public class Spriggan {
     private static String currentSpigot = "1.11.2";
 
     private static Server currentServer = null;
-
+    
     public static void main(String[] argsv) {
         if (argsv.length > 0 && (argsv[0].equalsIgnoreCase("-v") || argsv[0].equalsIgnoreCase("-version"))) {
-            System.out.println(VERSION);
+            System.out.print(VERSION);
             return;
         }
-        File settings = new File("spriggan.conf");
+        File settings = new File("data" + fsep + "spriggan.conf");
         if (settings.exists()) {
             Map<String, String> data = ConfUtil.loadConfig(settings);
             serverFolder = new File(data.get("server-folder"));
+            pluginFolder = new File(data.get("plugin-folder"));
             mavenFolder = new File(data.get("maven-folder"));
             currentSpigot = data.get("default-version");
         } else {
-            serverFolder = new File("servers");
+            serverFolder = new File("data" + fsep + "servers");
+            pluginFolder = new File("data" + fsep + "plugins");
             mavenFolder = new File(System.getProperty("user.home") + fsep + ".m2" + fsep + "repository");
-            ConfUtil.saveConfig(settings, new HashMap<String, String>(){{
-                put("server-folder", "servers");
-                put("maven-folder", System.getProperty("user.home") + fsep + ".m2" + fsep + "repository");
-                put("default-version", currentSpigot);
-            }});
+            ConfUtil.saveConfig(settings, new HashMap<String, String>() {
+                {
+                    put("server-folder", "data" + fsep + "servers");
+                    put("plugin-folder", "data" + fsep + "plugins");
+                    put("maven-folder", System.getProperty("user.home") + fsep + ".m2" + fsep + "repository");
+                    put("default-version", currentSpigot);
+                }
+            });
         }
+        pluginController = new PluginController();
         setup();
         Server.loadAll();
         try {
@@ -127,6 +135,10 @@ public class Spriggan {
 
     public static File getServerFolder() {
         return serverFolder;
+    }
+    
+    public static File getPluginFolder() {
+        return pluginFolder;
     }
 
     public static Server getCurrentServer() {

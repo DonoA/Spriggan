@@ -149,7 +149,7 @@ public class Server {
             ex.printStackTrace();
         }
         // Regenerate the proc builder with new exec name
-        System.out.println("executing: " + Arrays.toString(new String[] {"java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable}));
+        System.out.println("executing: " + Arrays.toString(new String[]{"java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable}));
         procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable)
                 .directory(dataDir)
                 .redirectErrorStream(true);
@@ -241,35 +241,36 @@ public class Server {
         System.out.println("Server ready to start and connect on " + host + ":" + port);
         this.saveConf();
     }
-    
-    public void saveConf(){
-        ConfUtil.saveConfig(new File(dataDir + fsep + "spriggan-server.conf"), new HashMap<String, String>(){{
-            put("memory", String.valueOf(memory));
-            put("keep-alive", String.valueOf(keepAlive));
-            put("executable", executable);
-            put("spigot-version", spigotVersion);
-        }});
+
+    public void saveConf() {
+        ConfUtil.saveConfig(new File(dataDir + fsep + "spriggan-server.conf"), new HashMap<String, String>() {
+            {
+                put("memory", String.valueOf(memory));
+                put("keep-alive", String.valueOf(keepAlive));
+                put("executable", executable);
+                put("spigot-version", spigotVersion);
+            }
+        });
     }
-    
-    public void loadConf(){
+
+    public void loadConf() {
         Map<String, String> data = ConfUtil.loadConfig(new File(dataDir + fsep + "spriggan-server.conf"));
         memory = Integer.parseInt(data.get("memory"));
         keepAlive = Boolean.getBoolean(data.get("keep-alive"));
         executable = data.get("executable");
         spigotVersion = data.get("spigot-version");
     }
-    
-    public void executeCommand(String str){
-        if(running){
+
+    public void executeCommand(String str) {
+        if (running) {
             try {
                 BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(proc.getOutputStream()));
-                bw.write(str+"\n");
+                bw.write(str + "\n");
                 bw.flush();
-                bw.close();
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
-        }else{
+        } else {
             System.out.println("Server not running");
         }
     }
@@ -318,7 +319,7 @@ public class Server {
             servers.put(s.getName(), s);
         }
     }
-    
+
     private class ServerHandle extends Thread {
 
         private BufferedReader reader;
@@ -342,6 +343,7 @@ public class Server {
                 }
                 Server.this.proc.waitFor();
                 System.out.println(name + " closed");
+                new BufferedWriter(new OutputStreamWriter(proc.getOutputStream())).close();
                 reader.close();
                 if (Server.this.keepAlive) {
                     while (!onReboot.isEmpty()) {

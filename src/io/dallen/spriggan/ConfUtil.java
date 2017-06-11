@@ -41,7 +41,7 @@ public class ConfUtil {
         try (BufferedReader br = new BufferedReader(new FileReader(conf))) {
             String line;
             while ((line = br.readLine()) != null) {
-                if(line.startsWith("#")){
+                if (line.startsWith("#")) {
                     continue;
                 }
                 String[] args = line.split("=");
