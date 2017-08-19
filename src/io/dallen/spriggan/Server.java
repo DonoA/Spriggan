@@ -33,6 +33,7 @@ import java.util.Queue;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
@@ -69,6 +70,8 @@ public class Server {
     private int memory = 2;
 
     private ServerLog logs;
+    
+    private Map<String, InstalledPlugin> plugins = new HashMap<String, InstalledPlugin>();
 
     private static final Map<String, Server> servers = new HashMap<>();
 
@@ -87,6 +90,7 @@ public class Server {
                 System.out.println(msg);
             }
         });
+        
     }
 
     public void start() {
@@ -117,11 +121,16 @@ public class Server {
     }
 
     public void addPlugin(Plugin p) {
-
+        try {
+            Files.copy(p.getJar().toPath(), new File(dataDir + fsep + "plugins" + fsep + p.getName() + ".jar").toPath());
+            plugins.put(p.getName(), new InstalledPlugin(p, new File(dataDir + fsep + "plugins" + fsep + p.getName() + ".jar")));
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 
     public void removePlugin(Plugin p) {
-
+        plugins.get(p.getName()).getInstalledLocation().delete();
     }
 
     public void setup() {
@@ -259,6 +268,14 @@ public class Server {
         keepAlive = Boolean.getBoolean(data.get("keep-alive"));
         executable = data.get("executable");
         spigotVersion = data.get("spigot-version");
+        for(File f : new File(dataDir + fsep + "plugins").listFiles()){
+            if(!f.getName().endsWith(".jar")){
+                continue;
+            }
+            String name = f.getName().replace(".jar", "");
+            plugins.put(name, new InstalledPlugin(Spriggan.getPluginController().getPlugin(name), f));
+
+        }
     }
 
     public void executeCommand(String str) {
@@ -295,7 +312,11 @@ public class Server {
         return name;
     }
 
-    public static Map allServers() {
+    public Map<String, InstalledPlugin> getPlugins(){
+        return this.plugins;
+    }
+    
+    public static Map<String, Server> allServers() {
         return servers;
     }
 
@@ -319,6 +340,10 @@ public class Server {
             servers.put(s.getName(), s);
         }
     }
+    
+    public void addRebootTask(Runnable rb) {
+        serverMonitor.addRebootTask(rb);
+    }
 
     private class ServerHandle extends Thread {
 
@@ -340,6 +365,7 @@ public class Server {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     logs.write(line);
+                    Thread.yield();
                 }
                 Server.this.proc.waitFor();
                 System.out.println(name + " closed");

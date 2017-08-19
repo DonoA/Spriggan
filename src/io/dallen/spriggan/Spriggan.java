@@ -23,7 +23,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
@@ -49,10 +52,16 @@ public class Spriggan {
 
     private static Server currentServer = null;
     
+    private static Plugin.UpdateWatcher updateThread;
+
     public static void main(String[] argsv) {
         if (argsv.length > 0 && (argsv[0].equalsIgnoreCase("-v") || argsv[0].equalsIgnoreCase("-version"))) {
             System.out.print(VERSION);
             return;
+        }
+        File dataDir = new File("data");
+        if(!dataDir.exists()){
+            dataDir.mkdir();
         }
         File settings = new File("data" + fsep + "spriggan.conf");
         if (settings.exists()) {
@@ -74,9 +83,11 @@ public class Spriggan {
                 }
             });
         }
+        setupFiles();
         pluginController = new PluginController();
-        setup();
         Server.loadAll();
+        updateThread = new Plugin.UpdateWatcher();
+        updateThread.start();
         try {
             System.setOut(new TermUtil(System.out));
         } catch (FileNotFoundException ex) {
@@ -88,6 +99,11 @@ public class Spriggan {
         boolean running = true;
         while (running) {
             String[] command = input.nextLine().split(" ");
+            for(int i = 0; i < command.length; i++){
+                if(((TermUtil) System.out).getLastOutput() != null){
+                    command[i] = command[i].replace("!!", ((TermUtil) System.out).getLastOutput());
+                }
+            }
             try {
                 if (currentServer != null) {
                     try {
@@ -107,6 +123,9 @@ public class Spriggan {
                                 System.out.println("Server not found");
                             } else {
                                 Server s = Server.getServer(command[1]);
+                                List<String> cmdLst = new ArrayList<String>(Arrays.asList(command));
+                                cmdLst.remove(1);
+                                command = cmdLst.toArray(command);
                                 Method cmd = Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{Server.class, String[].class});
                                 if (!cmd.isAnnotationPresent(Commands.StrictlyCurrentServer.class)) {
                                     cmd.invoke(null, new Object[]{s, command});
@@ -127,12 +146,19 @@ public class Spriggan {
 
     }
 
-    private static void setup() {
+    private static void setupFiles() {
         if (!serverFolder.exists()) {
             serverFolder.mkdir();
         }
+        if(!pluginFolder.exists()){
+            pluginFolder.mkdir();
+        }
     }
-
+    
+    public static PluginController getPluginController() {
+        return pluginController;
+    }
+    
     public static File getServerFolder() {
         return serverFolder;
     }

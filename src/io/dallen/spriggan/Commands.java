@@ -19,6 +19,7 @@
  */
 package io.dallen.spriggan;
 
+import static io.dallen.spriggan.Spriggan.fsep;
 import java.io.File;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -29,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -118,8 +120,20 @@ public class Commands {
             usage = "install [server] [plugin]",
             desc = "Install the plugin on the server"
     )
-    public static void install(String[] args) {
-
+    public static void install(Server s, String[] args) {
+        Plugin p = Spriggan.getPluginController().getPlugin(args[1]);
+        s.addPlugin(p);
+        System.out.println("Installed " + p.getName() + " on " + s.getName());
+    }
+    
+    @CommandHelp(
+            usage = "uninstall [server] [plugin]",
+            desc = "Uninstall the plugin on the server"
+    )
+    public static void uninstall(Server s, String[] args) {
+        Plugin p = Spriggan.getPluginController().getPlugin(args[1]);
+        s.removePlugin(p);
+        System.out.println("Removed " + p.getName() + " from " + s.getName());
     }
 
     @CommandHelp(
@@ -184,33 +198,68 @@ public class Commands {
     )
     public static void exit(String[] args) {
         System.out.println("Shutting down");
-        for (Object b : Server.allServers().values()) {
-            Server s = (Server) b;
+        for (Server s : Server.allServers().values()) {
             if (s.isRunning()) {
                 s.stop();
                 s.saveConf();
             }
         }
+        Spriggan.getPluginController().saveIfDirty();
         System.exit(0);
+    }
+
+    @CommandHelp(
+            usage = "track [plugin or location] <as [name]>",
+            desc = "track a plugin and store it as name"
+    )
+    public static void track(String[] args) {
+        System.out.println("Adding " + args[1]);
+        File repo = new File(args[1]);
+        boolean maven = repo.getAbsolutePath().startsWith(Spriggan.getMavenFolder().getAbsolutePath());
+        if (args.length > 3 && args[2].equalsIgnoreCase("as")) {
+            Spriggan.getPluginController().addPlugin(args[3], repo, maven);
+        } else {
+            Spriggan.getPluginController().addPlugin(repo.getName(), repo, maven);
+        }
+        Spriggan.getPluginController().saveIfDirty();
     }
     
     @CommandHelp(
-            usage = "locate",
-            desc = "locate"
+            usage = "locate [search term]",
+            desc = "locate a plugin by name in the maven repo"
     )
     public static void locate(String[] args) {
         System.out.println("Finding " + args[1]);
-        File repo = Plugin.locateRepo(args[1]);
-        System.out.println();
+        File repo;
+        repo = Plugin.searchRepo(args[1]);
+        System.out.println(repo);
+        ((TermUtil) System.out).setLastOutput(repo.getAbsolutePath());
+    }
+
+    @CommandHelp(
+            usage = "plugins",
+            desc = "list all known plugins and their location"
+    )
+    public static void plugins(String[] args) {
+        for(Map.Entry<String, Plugin> e : Spriggan.getPluginController().getPlugins().entrySet()){
+            System.out.println(e.getKey() + " -> " + e.getValue().getLocation().getAbsolutePath());
+        }
+        if(Spriggan.getPluginController().getPlugins().entrySet().isEmpty()){
+            System.out.println("No tracked plugins");
+        }
     }
     
     @CommandHelp(
-            usage = "stat",
-            desc = "stat"
+            usage = "plugins",
+            desc = "list all known plugins and their location"
     )
-    public static void stat(String[] args) {
-        System.out.println("Stating " + args[1]);
-        System.out.println();
+    public static void plugins(Server s, String[] args) {
+        for(Map.Entry<String, InstalledPlugin> e : s.getPlugins().entrySet()){
+            System.out.println(e.getKey() + " -> " + e.getValue().getInstalledLocation().getAbsolutePath());
+        }
+        if(Spriggan.getPluginController().getPlugins().entrySet().isEmpty()){
+            System.out.println("No tracked plugins");
+        }
     }
 
     @CommandHelp(
@@ -226,11 +275,15 @@ public class Commands {
             desc = "Display list of running servers"
     )
     public static void running(String[] args) {
-        for (Object o : Server.allServers().values()) {
-            Server s = (Server) o;
+        boolean none = true;
+        for (Server s : Server.allServers().values()) {
             if (s.isRunning()) {
                 System.out.println(s.getName());
+                none = false;
             }
+        }
+        if(none){
+            System.out.println("No running servers");
         }
     }
 
@@ -239,8 +292,11 @@ public class Commands {
             desc = "List all known servers"
     )
     public static void servers(String[] args) {
-        for (Object o : Server.allServers().values()) {
-            System.out.println(((Server) o).getName());
+        if(Server.allServers().isEmpty()){
+            System.out.println("No servers found");
+        }
+        for (Server s : Server.allServers().values()) {
+            System.out.println(s.getName());
         }
     }
 

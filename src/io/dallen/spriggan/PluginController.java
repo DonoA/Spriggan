@@ -19,9 +19,12 @@
  */
 package io.dallen.spriggan;
 
+import static io.dallen.spriggan.Spriggan.fsep;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  *
@@ -31,18 +34,46 @@ public class PluginController {
     
     private Map<String, Plugin> plugins = new HashMap<String, Plugin>();
     
+    private boolean dirty = false;
+    
     public PluginController(){
-        for(File f : Spriggan.getPluginFolder().listFiles()){
-            
+        for(File plugin : Spriggan.getPluginFolder().listFiles()){
+            if(!plugin.isDirectory())
+                continue;
+            this.addPlugin(plugin.getName(), plugin, false);
+        }
+        File pluginInfo = new File(Spriggan.getPluginFolder() + fsep + "maven.plugins");
+        if(pluginInfo.exists()){
+            Map<String, String> mavenPlugins = ConfUtil.loadConfig(pluginInfo);
+            mavenPlugins.forEach((name, location) -> {
+                this.addPlugin(name, new File(location), true);
+            });
         }
     }
     
-    public void addPlugin(String name, Plugin p){
-        plugins.put(name, p);
+    public void addPlugin(String name, File repo, boolean maven){
+        dirty = true;
+        plugins.put(name, new Plugin(name, repo, maven));
+    }
+    
+    public void saveIfDirty(){
+        if(!dirty)
+            return;
+        Map<String, String> pln = new HashMap<String, String>();
+        plugins.entrySet().stream().filter((e)->{
+            return e.getValue().isMaven();
+        }).forEach((e)->{
+            pln.put(e.getKey(), e.getValue().getLocation().toString());
+        });
+        ConfUtil.saveConfig(new File(Spriggan.getPluginFolder() + fsep + "maven.plugins"), pln);
     }
     
     public Plugin getPlugin(String name){
         return plugins.get(name);
+    }
+
+    public Map<String, Plugin> getPlugins() {
+        return plugins;
     }
     
 }

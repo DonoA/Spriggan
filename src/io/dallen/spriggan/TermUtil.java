@@ -29,7 +29,9 @@ import java.io.PrintStream;
 public class TermUtil extends PrintStream {
 
     private PrintStream sysOut;
-
+    
+    private String lastOutput;
+    
     public TermUtil(PrintStream orig) throws FileNotFoundException {
         super("SprigganOut");
         this.sysOut = orig;
@@ -46,6 +48,14 @@ public class TermUtil extends PrintStream {
         } else {
             sysOut.print("\b\b" + m + "\n> ");
         }
+    }
+    
+    public void setLastOutput(String str){
+        this.lastOutput = str;
+    }
+    
+    public String getLastOutput(){
+        return this.lastOutput;
     }
 
     @Override
