@@ -122,8 +122,11 @@ public class Commands {
     )
     public static void install(Server s, String[] args) {
         Plugin p = Spriggan.getPluginController().getPlugin(args[1]);
-        s.addPlugin(p);
-        System.out.println("Installed " + p.getName() + " on " + s.getName());
+        if(s.addPlugin(p)){
+            System.out.println("Installed " + p.getName() + " on " + s.getName());
+        }else{
+            System.out.println("Cannot install on running server, " + p.getName() + " on " + s.getName() + " on next restart");
+        }
     }
     
     @CommandHelp(
@@ -232,7 +235,7 @@ public class Commands {
         System.out.println("Finding " + args[1]);
         File repo;
         repo = Plugin.searchRepo(args[1]);
-        System.out.println(repo);
+        System.out.println(repo.getAbsolutePath());
         ((TermUtil) System.out).setLastOutput(repo.getAbsolutePath());
     }
 

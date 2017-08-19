@@ -52,7 +52,6 @@ public class Spriggan {
 
     private static Server currentServer = null;
     
-    private static Plugin.UpdateWatcher updateThread;
 
     public static void main(String[] argsv) {
         if (argsv.length > 0 && (argsv[0].equalsIgnoreCase("-v") || argsv[0].equalsIgnoreCase("-version"))) {
@@ -86,8 +85,7 @@ public class Spriggan {
         setupFiles();
         pluginController = new PluginController();
         Server.loadAll();
-        updateThread = new Plugin.UpdateWatcher();
-        updateThread.start();
+
         try {
             System.setOut(new TermUtil(System.out));
         } catch (FileNotFoundException ex) {

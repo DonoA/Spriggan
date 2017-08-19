@@ -21,7 +21,12 @@ package io.dallen.spriggan;
 
 import static io.dallen.spriggan.Spriggan.fsep;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -36,6 +41,8 @@ public class PluginController {
     
     private boolean dirty = false;
     
+    private static UpdateWatcher updateThread;
+    
     public PluginController(){
         for(File plugin : Spriggan.getPluginFolder().listFiles()){
             if(!plugin.isDirectory())
@@ -49,6 +56,9 @@ public class PluginController {
                 this.addPlugin(name, new File(location), true);
             });
         }
+        
+        updateThread = new UpdateWatcher();
+        updateThread.start();
     }
     
     public void addPlugin(String name, File repo, boolean maven){
@@ -74,6 +84,61 @@ public class PluginController {
 
     public Map<String, Plugin> getPlugins() {
         return plugins;
+    }
+    
+    public static class UpdateWatcher extends Thread {
+        
+        public boolean running = true;
+        
+        private long lastRun = 0;
+        
+        private Map<String, Long> modified = new HashMap<String, Long>();
+        
+        public UpdateWatcher(){
+            for(Plugin p : Spriggan.getPluginController().getPlugins().values()){
+                modified.put(p.getName(), p.getJar().lastModified());
+            }
+        }
+        
+        public void run(){
+            while(running){
+                if(lastRun + 100 > System.currentTimeMillis()){
+                    Thread.yield();
+                    continue;
+                }
+                List<String> checked = new LinkedList<String>();
+                for(Server s: Server.allServers().values()){
+                    if(!s.isRunning()){
+                        continue;
+                    }
+                    boolean dirty = false;
+                    for(InstalledPlugin pgn : s.getPlugins().values()){
+                        Plugin p = pgn.getPlugin();
+                        if(checked.contains(p.getName())){
+                            continue;
+                        }
+                        checked.add(p.getName());
+                        if(p.getJar().lastModified() > modified.get(p.getName())){
+                            dirty = true;
+                            s.addShutdownTask(() -> {
+                                try {
+                                    Files.copy(p.getJar().toPath(), new File(s.getDataDir() + fsep + "plugins" + fsep + p.getName() + ".jar").toPath(), 
+                                            StandardCopyOption.REPLACE_EXISTING);
+                                } catch (IOException ex) {
+                                    ex.printStackTrace();
+                                }
+                            });
+                            modified.put(p.getName(), p.getJar().lastModified());
+                        }
+                    }
+                    if(dirty){
+                        s.keepAlive(true);
+                        s.stop();
+                    }
+                }
+                lastRun = System.currentTimeMillis();
+            }
+        }
     }
     
 }

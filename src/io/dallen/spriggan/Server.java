@@ -120,17 +120,31 @@ public class Server {
         }
     }
 
-    public void addPlugin(Plugin p) {
+    public boolean addPlugin(Plugin p) {
+        if(running){
+            this.addShutdownTask(()->{
+                this.addPlugin(p);
+            });
+            return false;
+        }
         try {
             Files.copy(p.getJar().toPath(), new File(dataDir + fsep + "plugins" + fsep + p.getName() + ".jar").toPath());
             plugins.put(p.getName(), new InstalledPlugin(p, new File(dataDir + fsep + "plugins" + fsep + p.getName() + ".jar")));
         } catch (IOException ex) {
             ex.printStackTrace();
         }
+        return true;
     }
 
-    public void removePlugin(Plugin p) {
+    public boolean removePlugin(Plugin p) {
+        if(running){
+            this.addShutdownTask(()->{
+                this.removePlugin(p);
+            });
+            return false;
+        }
         plugins.get(p.getName()).getInstalledLocation().delete();
+        return true;
     }
 
     public void setup() {
@@ -341,22 +355,22 @@ public class Server {
         }
     }
     
-    public void addRebootTask(Runnable rb) {
-        serverMonitor.addRebootTask(rb);
+    public void addShutdownTask(Runnable rb) {
+        serverMonitor.addShutdownTask(rb);
     }
 
     private class ServerHandle extends Thread {
 
         private BufferedReader reader;
 
-        private Queue<Runnable> onReboot = new LinkedList<>();
+        private Queue<Runnable> onShutdown = new LinkedList<Runnable>();
 
         public ServerHandle() {
             this.reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
         }
 
-        public void addRebootTask(Runnable rb) {
-            onReboot.add(rb);
+        public void addShutdownTask(Runnable rb) {
+            onShutdown.add(rb);
         }
 
         @Override
@@ -371,10 +385,10 @@ public class Server {
                 System.out.println(name + " closed");
                 new BufferedWriter(new OutputStreamWriter(proc.getOutputStream())).close();
                 reader.close();
+                while (!onShutdown.isEmpty()) {
+                    onShutdown.poll().run();
+                }
                 if (Server.this.keepAlive) {
-                    while (!onReboot.isEmpty()) {
-                        onReboot.poll().run();
-                    }
                     Server.this.start();
                 } else {
                     running = false;
