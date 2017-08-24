@@ -33,10 +33,17 @@ public class InstalledPlugin {
     
     private File installLocation;
     
+    private String version;
+    
     public InstalledPlugin(Plugin plugin, File loc){
         this.plugin = plugin;
         this.installLocation = loc;
         this.active = true;
+        this.version = plugin.getLatestMavenVersion();
+    }
+    
+    public String getVersion(){
+        return version;
     }
     
     public File getInstalledLocation(){

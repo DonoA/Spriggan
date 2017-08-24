@@ -26,9 +26,13 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -51,6 +55,8 @@ public class Spriggan {
     private static Server currentServer = null;
     
     public static boolean running = true;
+    
+    public final static CommandExecutionThread cmdHandler = new CommandExecutionThread();
     
     public static void main(String[] argsv) {
         if (argsv.length > 0 && (argsv[0].equalsIgnoreCase("-v") || argsv[0].equalsIgnoreCase("-version"))) {
@@ -85,12 +91,12 @@ public class Spriggan {
         pluginController = new PluginController();
         pluginController.setupUpdateThread();
         Server.loadAll();
-
         try {
             System.setOut(new TermUtil(System.out));
         } catch (FileNotFoundException ex) {
             System.out.println("Failed to bind new sys out");
         }
+        cmdHandler.start();
         System.out.println("Welcome to Spriggan. Type help for a list of commands.");
         System.out.println("=====");
         Scanner input = new Scanner(System.in);
@@ -101,12 +107,9 @@ public class Spriggan {
                     command[i] = command[i].replace("!!", ((TermUtil) System.out).getLastOutput());
                 }
             }
-            try {
-                handleCommand(command);
-            } catch(CommandNotFoundException ex){
-                System.out.println("Command not found");
-            } catch(ServerNotFoundException ex) {
-                System.out.println("Server not found");
+            synchronized (cmdHandler) {
+                cmdHandler.enqueueCommand(command);
+                cmdHandler.notify();
             }
         }
     }
@@ -205,6 +208,35 @@ public class Spriggan {
         
         public CommandNotFoundException(String[] command) {
             this.command = command;
+        }
+    }
+    
+    public static class CommandExecutionThread extends Thread {
+        
+        private volatile Queue<String[]> toExecute = new LinkedList<String[]>();
+        
+        public void enqueueCommand(String[] command){
+            toExecute.add(command);
+        }
+        
+        @Override
+        public synchronized void run() {
+            while(true) {
+                while(!toExecute.isEmpty()){
+                    try {
+                        handleCommand(toExecute.poll());
+                    } catch(CommandNotFoundException ex){
+                        System.out.println("Command not found");
+                    } catch(ServerNotFoundException ex) {
+                        System.out.println("Server not found");
+                    }
+                }
+                try {
+                    wait();
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
         }
     }
 }

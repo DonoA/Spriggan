@@ -58,7 +58,7 @@ public class Plugin {
         }
     }
     
-    private String getLatestMavenVersion(){
+    public String getLatestMavenVersion(){
         long lstMod = 0;
         String vrsn = null;
         for(File version : location.listFiles()){

@@ -33,11 +33,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  *
@@ -47,9 +45,9 @@ public class Server {
 
     private final String name;
 
-    private boolean running;
+    private AtomicBoolean running = new AtomicBoolean();
     
-    private boolean loaded;
+    private AtomicBoolean loaded = new AtomicBoolean();
 
     private File dataDir;
 
@@ -74,6 +72,8 @@ public class Server {
     private ServerLog logs;
     
     private Map<String, InstalledPlugin> plugins = new HashMap<String, InstalledPlugin>();
+    
+    private File serverJar;
 
     private static final Map<String, Server> servers = new HashMap<>();
 
@@ -83,8 +83,8 @@ public class Server {
 
     public Server(String name, String version) {
         this.name = name;
-        this.running = false;
-        this.loaded = false;
+        this.running.set(false);
+        this.loaded.set(false);
         this.dataDir = new File(Spriggan.getServerFolder() + File.separator + name);
         this.keepAlive = true;
         this.spigotVersion = version;
@@ -97,12 +97,12 @@ public class Server {
     }
 
     public void start() {
-        procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable)
-                .directory(dataDir)
-                .redirectErrorStream(true);
+//        procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable)
+//                .directory(dataDir)
+//                .redirectErrorStream(true);
         try {
             System.out.println("Starting " + name);
-            running = true;
+            running.set(true);
             proc = procb.start();
             serverMonitor = new ServerHandle();
             serverMonitor.start();
@@ -113,7 +113,7 @@ public class Server {
 
     public void stop() {
         try {
-            loaded = false;
+            loaded.set(false);
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(proc.getOutputStream()));
             bw.write("stop\n");
             bw.flush();
@@ -124,9 +124,10 @@ public class Server {
     }
 
     public boolean addPlugin(Plugin p) {
-        if(running){
+        if(running.get()){
             this.addShutdownTask(()->{
                 this.addPlugin(p);
+                System.out.println("Installed " + p.getName() + " version " + p.getLatestMavenVersion());
             });
             return false;
         }
@@ -141,7 +142,7 @@ public class Server {
     }
 
     public boolean removePlugin(Plugin p) {
-        if(running){
+        if(running.get()){
             this.addShutdownTask(()->{
                 this.removePlugin(p);
             });
@@ -154,27 +155,7 @@ public class Server {
     public void setup() {
         dataDir.mkdir();
         // Find the server jar from maven repo
-        File serverJars = new File(Spriggan.getMavenFolder() + File.separator + "org" + File.separator + "spigotmc" + File.separator + "spigot");
-        int R = 0;
-        String exe = null;
-        for (File f : serverJars.listFiles()) {
-            if (!f.getName().startsWith(spigotVersion) || f.isFile()) {
-                continue;
-            }
-            int r = Integer.parseInt(String.valueOf(f.getName().split("-")[1].charAt(3)));
-            if (r > R) {
-                R = r;
-                exe = f.getName();
-            }
-        }
-        executable = "spigot-" + exe + ".jar";
-        File serverJar = new File(serverJars + File.separator + exe + File.separator + executable);
-        try {
-            System.out.println("Copying server jar, " + serverJar.getAbsolutePath() + " -> " + new File(dataDir + File.separator + executable).getAbsolutePath());
-            Files.copy(serverJar.toPath(), new File(dataDir + File.separator + executable).toPath());
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
+        this.installNewJar(spigotVersion);
         // Regenerate the proc builder with new exec name
         System.out.println("executing: " + Arrays.toString(new String[]{"java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable}));
         procb = new ProcessBuilder("java", "-DIReallyKnowWhatIAmDoingISwear=\"true\"", "-Xms" + memory + "G", "-Xmx" + memory + "G", "-jar", executable)
@@ -189,27 +170,12 @@ public class Server {
         }
         System.out.println("Created eula.txt");
         // start the server to create the server.properties
-        try {
-            System.out.println("Starting server 1st time...");
-            Process pr = procb.start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(pr.getInputStream()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.contains("Preparing start")) {
-                    System.out.println("Generating worlds...");
-                } else if (line.contains("Done")) {
-                    System.out.println("Stopping server 1");
-                    BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(pr.getOutputStream()));
-                    bw.write("stop\n");
-                    bw.flush();
-                    bw.close();
-                }
-            }
-            pr.waitFor();
-            System.out.println("Server 1 closed");
-        } catch (IOException | InterruptedException ex) {
-            ex.printStackTrace();
-        }
+        System.out.println("Starting server 1st time...");
+        this.start();
+        this.blockTilLoaded();
+        this.stop();
+        this.blockTilStopped();
+        System.out.println("Server 1 closed");
         // Edit the server props
         System.out.println("Editing server props");
         File serverProps = new File(dataDir + File.separator + "server.properties");
@@ -247,24 +213,12 @@ public class Server {
             new File(dataDir + File.separator + "world" + s).delete();
         }
         // Generate the new flat world
-        try {
-            System.out.println("Starting server 2nd time...");
-            Process pr = procb.start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(pr.getInputStream()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.contains("Done")) {
-                    BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(pr.getOutputStream()));
-                    bw.write("stop\n");
-                    bw.flush();
-                    bw.close();
-                }
-            }
-            pr.waitFor();
-            System.out.println("Server 2 closed");
-        } catch (IOException | InterruptedException ex) {
-            ex.printStackTrace();
-        }
+        System.out.println("Starting server 2nd time...");
+        this.start();
+        this.blockTilLoaded();
+        this.stop();
+        this.blockTilStopped();
+        System.out.println("Server 2 closed");
         System.out.println("Server ready to start and connect on " + host + ":" + port);
         this.saveConf();
     }
@@ -297,7 +251,7 @@ public class Server {
     }
 
     public void executeCommand(String str) {
-        if (running && loaded) {
+        if (running.get() && loaded.get()) {
             try {
                 BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(proc.getOutputStream()));
                 bw.write(str + "\n");
@@ -325,11 +279,11 @@ public class Server {
     }
     
     public boolean isRunning() {
-        return running;
+        return running.get();
     }
     
     public boolean isLoaded() {
-        return loaded;
+        return loaded.get();
     }
 
     public void setKeepAlive(boolean k) {
@@ -353,9 +307,9 @@ public class Server {
     }
 
     public void kill() {
-        this.running = false;
+        this.running.set(false);
         proc.destroy();
-        this.loaded = false;
+        this.loaded.set(false);
     }
 
     public String getName() {
@@ -373,7 +327,7 @@ public class Server {
     public static Server getServer(String name) {
         return servers.get(name);
     }
-
+    
     public static void loadAll() {
         for (File s : Spriggan.getServerFolder().listFiles()) {
             if (s.isFile() || s.isHidden()) {
@@ -394,6 +348,65 @@ public class Server {
     public void addShutdownTask(Runnable rb) {
         serverMonitor.addShutdownTask(rb);
     }
+    
+    public synchronized void blockTilLoaded(){
+        while(!loaded.get() || !running.get()){
+            try {
+                wait();
+            } catch (InterruptedException ex) {
+            }
+        }
+    }
+    
+    public synchronized void blockTilStopped(){
+        while(loaded.get() || running.get()){
+            try {
+                wait();
+            } catch (InterruptedException ex) {
+            }
+        }
+    }
+    
+    public File getServerJar() {
+        return serverJar;
+    }
+    
+    public boolean installNewJar(String version) {
+        if(running.get()){
+            this.addShutdownTask(()->{
+                this.installNewJar(version);
+                System.out.println("New jar installed: " + this.getExecutable());
+            });
+            return false;
+        }
+        // Find the server jar from maven repo
+        File serverJars = new File(Spriggan.getMavenFolder() + File.separator + "org" + File.separator + "spigotmc" + File.separator + "spigot");
+        int R = 0;
+        String exe = null;
+        for (File f : serverJars.listFiles()) {
+            if (!f.getName().startsWith(spigotVersion) || f.isFile()) {
+                continue;
+            }
+            int r = Integer.parseInt(String.valueOf(f.getName().split("-")[1].charAt(3)));
+            if (r > R) {
+                R = r;
+                exe = f.getName();
+            }
+        }
+        executable = "spigot-" + exe + ".jar";
+        serverJar = new File(serverJars + File.separator + exe + File.separator + executable);
+        try {
+            System.out.println("Copying server jar, " + serverJar.getAbsolutePath() + " -> " + new File(dataDir + File.separator + executable).getAbsolutePath());
+            Files.copy(serverJar.toPath(), new File(dataDir + File.separator + executable).toPath());
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return true;
+    }
+    
+    public String getExecutable(){
+        return executable;
+    }
 
     private class ServerHandle extends Thread {
 
@@ -410,13 +423,14 @@ public class Server {
         }
 
         @Override
-        public void run() {
+        public synchronized void run() {
             try {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     logs.write(line);
                     if (line.contains("Done")) {
-                        Server.this.loaded = true;
+                        Server.this.loaded.set(true);
+                        notifyAll();
                     }
                     Thread.yield();
                 }
@@ -427,7 +441,8 @@ public class Server {
             } catch (IOException | InterruptedException ex) {
                 ex.printStackTrace();
             } finally {
-                running = false;
+                running.set(false);
+                notifyAll();
                 while (!onShutdown.isEmpty()) {
                     onShutdown.poll().run();
                 }

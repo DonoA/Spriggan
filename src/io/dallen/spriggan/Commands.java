@@ -142,22 +142,17 @@ public class Commands {
             usage = "destroy [server]",
             desc = "Delete the server completely"
     )
-    public static void destroy(String[] args) {
-        if (!Server.allServers().containsKey(args[1])) {
-            System.out.println("Server not found");
-        } else {
-            Server s = Server.getServer(args[1]);
-            if (s.isRunning()) {
-                s.addShutdownTask(new Runnable(){
-                    public void run(){
-                        s.deleteDataDir();
+    public static void destroy(Server s, String[] args) {
+        if (s.isRunning()) {
+            s.addShutdownTask(new Runnable(){
+                public void run(){
+                    s.deleteDataDir();
 
-                    }
-                });
-                s.stop();
-            }else{
-                s.deleteDataDir();
-            }
+                }
+            });
+            s.stop();
+        }else{
+            s.deleteDataDir();
         }
     }
 
@@ -269,11 +264,53 @@ public class Commands {
         for(Map.Entry<String, InstalledPlugin> e : s.getPlugins().entrySet()){
             System.out.println(e.getKey() + " -> " + e.getValue().getInstalledLocation().getAbsolutePath());
         }
-        if(Spriggan.getPluginController().getPlugins().entrySet().isEmpty()){
+        if(s.getPlugins().entrySet().isEmpty()){
             System.out.println("No tracked plugins");
         }
     }
-
+    
+    @CommandHelp(
+            usage = "setVersion [server] [new version]",
+            desc = "Sets the version for the server"
+    )
+    public static void setVersion(Server s, String[] args) {
+        if(s.installNewJar(args[1])){
+            System.out.println("New jar installed: " + s.getExecutable());
+        }else{
+            System.out.println("New jar will be installed on next reboot");
+        }
+    }
+    
+    @CommandHelp(
+            usage = "update [server]",
+            desc = "Updates all the plugins on a server"
+    )
+    public static void update(Server s, String[] args) {
+        for(InstalledPlugin plgn : s.getPlugins().values()){
+            if(s.addPlugin(plgn.getPlugin())){
+                System.out.println(plgn.getPlugin().getName() + " updated to " + plgn.getVersion());
+            }else{
+                System.out.println(plgn.getPlugin().getName() + " will be updated on next reboot");
+            }
+        }
+    }
+    
+    @CommandHelp(
+            usage = "update [plugin]",
+            desc = "Updates all copies of a plugin on all servers"
+    )
+    public static void update(String[] args) {
+        for(Server s : Server.allServers().values()){
+            for(InstalledPlugin plgn : s.getPlugins().values()){
+                if(s.addPlugin(plgn.getPlugin())){
+                    System.out.println(plgn.getPlugin().getName() + " on " + s.getName() + " updated to " + plgn.getVersion());
+                }else{
+                    System.out.println(plgn.getPlugin().getName() + " on " + s.getName() + " will be updated on next reboot");
+                }
+            }
+        }
+    }
+    
     @CommandHelp(
             usage = "dat [server]",
             desc = "Display the data file for the given server"
