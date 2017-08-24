@@ -19,7 +19,6 @@
  */
 package io.dallen.spriggan;
 
-import static io.dallen.spriggan.Spriggan.fsep;
 import java.io.File;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -51,12 +50,12 @@ public class Commands {
     }
 
     @CommandHelp(
-            usage = "start [name]",
+            usage = "stop [name]",
             desc = "Stop the given server or the current server is none is provided"
     )
     public static void stop(Server s, String[] args) {
         if (s.isRunning()) {
-            s.keepAlive(false);
+            s.setKeepAlive(false);
             s.stop();
         } else {
             System.out.println("Server not running");
@@ -81,7 +80,7 @@ public class Commands {
     )
     public static void restart(Server s, String[] args) {
         if (s.isRunning()) {
-            s.keepAlive(true);
+            s.setKeepAlive(true);
             s.stop();
         } else {
             System.out.println("Server not running");
@@ -149,10 +148,16 @@ public class Commands {
         } else {
             Server s = Server.getServer(args[1]);
             if (s.isRunning()) {
+                s.addShutdownTask(new Runnable(){
+                    public void run(){
+                        s.deleteDataDir();
+
+                    }
+                });
                 s.stop();
+            }else{
+                s.deleteDataDir();
             }
-            System.out.println(s.getDataDir().getAbsoluteFile());
-            s.getDataDir().delete();
         }
     }
 
@@ -235,8 +240,12 @@ public class Commands {
         System.out.println("Finding " + args[1]);
         File repo;
         repo = Plugin.searchRepo(args[1]);
-        System.out.println(repo.getAbsolutePath());
-        ((TermUtil) System.out).setLastOutput(repo.getAbsolutePath());
+        if(repo != null){
+            System.out.println(repo.getAbsolutePath());
+            ((TermUtil) System.out).setLastOutput(repo.getAbsolutePath());
+        }else{
+            System.out.println("The plugin was not found");
+        }
     }
 
     @CommandHelp(

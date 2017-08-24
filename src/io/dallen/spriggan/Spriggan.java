@@ -44,15 +44,14 @@ public class Spriggan {
     
     private static PluginController pluginController;
 
-    public static final String fsep = System.getProperty("file.separator");
-
     private static String VERSION = "0.1";
 
     private static String currentSpigot = "1.11.2";
 
     private static Server currentServer = null;
     
-
+    public static boolean running = true;
+    
     public static void main(String[] argsv) {
         if (argsv.length > 0 && (argsv[0].equalsIgnoreCase("-v") || argsv[0].equalsIgnoreCase("-version"))) {
             System.out.print(VERSION);
@@ -62,7 +61,7 @@ public class Spriggan {
         if(!dataDir.exists()){
             dataDir.mkdir();
         }
-        File settings = new File("data" + fsep + "spriggan.conf");
+        File settings = new File("data" + File.separator + "spriggan.conf");
         if (settings.exists()) {
             Map<String, String> data = ConfUtil.loadConfig(settings);
             serverFolder = new File(data.get("server-folder"));
@@ -70,20 +69,21 @@ public class Spriggan {
             mavenFolder = new File(data.get("maven-folder"));
             currentSpigot = data.get("default-version");
         } else {
-            serverFolder = new File("data" + fsep + "servers");
-            pluginFolder = new File("data" + fsep + "plugins");
-            mavenFolder = new File(System.getProperty("user.home") + fsep + ".m2" + fsep + "repository");
+            serverFolder = new File("data" + File.separator + "servers");
+            pluginFolder = new File("data" + File.separator + "plugins");
+            mavenFolder = new File(System.getProperty("user.home") + File.separator + ".m2" + File.separator + "repository");
             ConfUtil.saveConfig(settings, new HashMap<String, String>() {
                 {
-                    put("server-folder", "data" + fsep + "servers");
-                    put("plugin-folder", "data" + fsep + "plugins");
-                    put("maven-folder", System.getProperty("user.home") + fsep + ".m2" + fsep + "repository");
+                    put("server-folder", "data" + File.separator + "servers");
+                    put("plugin-folder", "data" + File.separator + "plugins");
+                    put("maven-folder", System.getProperty("user.home") + File.separator + ".m2" + File.separator + "repository");
                     put("default-version", currentSpigot);
                 }
             });
         }
         setupFiles();
         pluginController = new PluginController();
+        pluginController.setupUpdateThread();
         Server.loadAll();
 
         try {
@@ -94,7 +94,6 @@ public class Spriggan {
         System.out.println("Welcome to Spriggan. Type help for a list of commands.");
         System.out.println("=====");
         Scanner input = new Scanner(System.in);
-        boolean running = true;
         while (running) {
             String[] command = input.nextLine().split(" ");
             for(int i = 0; i < command.length; i++){
@@ -103,45 +102,55 @@ public class Spriggan {
                 }
             }
             try {
-                if (currentServer != null) {
-                    try {
-                        Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{Server.class, String[].class})
-                                .invoke(null, new Object[]{currentServer, command});
-                    } catch (NoSuchMethodException ex) {
-                        Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{String[].class})
-                                .invoke(null, new Object[]{command});
-                    }
-                } else {
-                    try {
-                        Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{String[].class})
-                                .invoke(null, new Object[]{command});
-                    } catch (NoSuchMethodException ex) {
-                        if (command.length > 1) {
-                            if (!Server.allServers().containsKey(command[1])) {
-                                System.out.println("Server not found");
-                            } else {
-                                Server s = Server.getServer(command[1]);
-                                List<String> cmdLst = new ArrayList<String>(Arrays.asList(command));
-                                cmdLst.remove(1);
-                                command = cmdLst.toArray(command);
-                                Method cmd = Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{Server.class, String[].class});
-                                if (!cmd.isAnnotationPresent(Commands.StrictlyCurrentServer.class)) {
-                                    cmd.invoke(null, new Object[]{s, command});
-                                }
-                            }
-                        } else {
-                            System.out.println("Command not found");
-                        }
-                    }
-
-                }
-            } catch (NoSuchMethodException ex) {
+                handleCommand(command);
+            } catch(CommandNotFoundException ex){
                 System.out.println("Command not found");
-            } catch (SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-                ex.printStackTrace();
+            } catch(ServerNotFoundException ex) {
+                System.out.println("Server not found");
             }
         }
-
+    }
+    
+    public static void handleCommand(String[] command) throws ServerNotFoundException, CommandNotFoundException {
+        try {
+            if (currentServer != null) {
+                try {
+                    Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{Server.class, String[].class})
+                            .invoke(null, new Object[]{currentServer, command});
+                } catch (NoSuchMethodException ex) {
+                    Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{String[].class})
+                            .invoke(null, new Object[]{command});
+                }
+            } else {
+                try {
+                    Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{String[].class})
+                            .invoke(null, new Object[]{command});
+                } catch (NoSuchMethodException ex) {
+                    if (command.length > 1) {
+                        if (!Server.allServers().containsKey(command[1])) {
+                            throw new ServerNotFoundException(command[1]);
+                        } else {
+                            Server s = Server.getServer(command[1]);
+                            List<String> cmdLst = new ArrayList<String>(Arrays.asList(command));
+                            cmdLst.remove(1);
+                            command = cmdLst.toArray(command);
+                            Method cmd = Commands.class.getDeclaredMethod(command[0].toLowerCase(), new Class[]{Server.class, String[].class});
+                            if (!cmd.isAnnotationPresent(Commands.StrictlyCurrentServer.class)) {
+                                cmd.invoke(null, new Object[]{s, command});
+                            } else {
+                                throw new ServerNotFoundException(command[1]);
+                            }
+                        }
+                    } else {
+                        throw new CommandNotFoundException(command);
+                    }
+                }
+            }
+        } catch (NoSuchMethodException ex) {
+            throw new CommandNotFoundException(command);
+        } catch (SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+            ex.printStackTrace();
+        }
     }
 
     private static void setupFiles() {
@@ -179,5 +188,23 @@ public class Spriggan {
 
     public static String getDefaultVersion() {
         return currentSpigot;
+    }
+
+    public static class ServerNotFoundException extends Exception {
+
+        private final String server;
+        
+        public ServerNotFoundException(String server) {
+            this.server = server;
+        }
+    }
+    
+    public static class CommandNotFoundException extends Exception {
+
+        private final String[] command;
+        
+        public CommandNotFoundException(String[] command) {
+            this.command = command;
+        }
     }
 }

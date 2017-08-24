@@ -28,7 +28,7 @@ import java.io.PrintStream;
  */
 public class TermUtil extends PrintStream {
 
-    private PrintStream sysOut;
+    protected PrintStream sysOut;
     
     private String lastOutput;
     
@@ -61,6 +61,10 @@ public class TermUtil extends PrintStream {
     @Override
     public void print(String m) {
         sysOut.print(m);
+    }
+    
+    public PrintStream getDefaultOut() {
+        return this.sysOut;
     }
 
 }

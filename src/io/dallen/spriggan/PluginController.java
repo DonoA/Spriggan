@@ -19,17 +19,15 @@
  */
 package io.dallen.spriggan;
 
-import static io.dallen.spriggan.Spriggan.fsep;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 
 /**
  *
@@ -49,21 +47,25 @@ public class PluginController {
                 continue;
             this.addPlugin(plugin.getName(), plugin, false);
         }
-        File pluginInfo = new File(Spriggan.getPluginFolder() + fsep + "maven.plugins");
+        File pluginInfo = new File(Spriggan.getPluginFolder() + File.separator + "maven.plugins");
         if(pluginInfo.exists()){
             Map<String, String> mavenPlugins = ConfUtil.loadConfig(pluginInfo);
             mavenPlugins.forEach((name, location) -> {
                 this.addPlugin(name, new File(location), true);
             });
         }
-        
+    }
+    
+    public void setupUpdateThread(){
         updateThread = new UpdateWatcher();
         updateThread.start();
     }
     
     public void addPlugin(String name, File repo, boolean maven){
         dirty = true;
-        plugins.put(name, new Plugin(name, repo, maven));
+        Plugin p = new Plugin(name, repo, maven);
+        plugins.put(name, p);
+        updateThread.addPlugin(p);
     }
     
     public void saveIfDirty(){
@@ -75,7 +77,7 @@ public class PluginController {
         }).forEach((e)->{
             pln.put(e.getKey(), e.getValue().getLocation().toString());
         });
-        ConfUtil.saveConfig(new File(Spriggan.getPluginFolder() + fsep + "maven.plugins"), pln);
+        ConfUtil.saveConfig(new File(Spriggan.getPluginFolder() + File.separator + "maven.plugins"), pln);
     }
     
     public Plugin getPlugin(String name){
@@ -92,12 +94,16 @@ public class PluginController {
         
         private long lastRun = 0;
         
-        private Map<String, Long> modified = new HashMap<String, Long>();
+        private volatile Map<String, Long> modified = new HashMap<String, Long>();
         
         public UpdateWatcher(){
             for(Plugin p : Spriggan.getPluginController().getPlugins().values()){
                 modified.put(p.getName(), p.getJar().lastModified());
             }
+        }
+        
+        public void addPlugin(Plugin p){
+            modified.put(p.getName(), p.getJar().lastModified());
         }
         
         public void run(){
@@ -122,7 +128,7 @@ public class PluginController {
                             dirty = true;
                             s.addShutdownTask(() -> {
                                 try {
-                                    Files.copy(p.getJar().toPath(), new File(s.getDataDir() + fsep + "plugins" + fsep + p.getName() + ".jar").toPath(), 
+                                    Files.copy(p.getJar().toPath(), new File(s.getDataDir() + File.separator + "plugins" + File.separator + p.getName() + ".jar").toPath(), 
                                             StandardCopyOption.REPLACE_EXISTING);
                                 } catch (IOException ex) {
                                     ex.printStackTrace();
@@ -132,7 +138,7 @@ public class PluginController {
                         }
                     }
                     if(dirty){
-                        s.keepAlive(true);
+                        s.setKeepAlive(true);
                         s.stop();
                     }
                 }

@@ -19,18 +19,7 @@
  */
 package io.dallen.spriggan;
 
-import static io.dallen.spriggan.Spriggan.fsep;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -56,14 +45,14 @@ public class Plugin {
     }
     
     public static File locateRepo(String name) {
-        File exec = new File(Spriggan.getMavenFolder() + fsep + name.replace(".", fsep));
+        File exec = new File(Spriggan.getMavenFolder() + File.separator + name.replace(".", File.separator));
         return exec;
     }
     
     public File getJar(){
         if(maven){
             String lstVersion = this.getLatestMavenVersion();
-            return new File(location + fsep + lstVersion + fsep + this.name + "-" + lstVersion + ".jar");
+            return new File(location + File.separator + lstVersion + File.separator + this.name + "-" + lstVersion + ".jar");
         }else{
             return location;
         }

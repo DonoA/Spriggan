@@ -6,7 +6,6 @@
 <JVMSearchPath>jdkpath</JVMSearchPath>
 <JVMSearchPath>exepath</JVMSearchPath>
 <JVMSearchPath>jview</JVMSearchPath>
-<arguments></arguments>
 <bundledJVMPath>..\..\..\..\..\..\Program Files\Java\jre1.8.0_101</bundledJVMPath>
 <classPath>Projects\Spriggan\src</classPath>
 <currentDirectory>${EXECUTABLEPATH}</currentDirectory>
